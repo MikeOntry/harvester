@@ -95,18 +95,18 @@ class CountryModule extends Module
         }
         
         /* TREASURY */
-        $treasury = $economy->select('//div[@class="accountdisplay largepadded"]');
-        $result['treasury'] = array(
-            'gold'=>(float)(
-                Filter::parseInt($treasury->select('span[@class="special"][1]')->extract()).
-                $treasury->select('sup[1]')->extract()
-            ),
-            'cc'=>(float)(
-                Filter::parseInt($treasury->select('span[@class="special"][2]')->extract()).
-                $treasury->select('sup[2]')->extract()
-            )
-        );
-        
+        $treasury = $economy->select('//table[@class="donation_status_table"]/tr');
+        foreach($treasury as $tr){
+            $amount = Filter::parseInt($tr->select('td[1]/span')->extract());
+            if($tr->select('td[1]/sup')->hasResults()) {
+                $amount += $tr->select('td[1]/sup')->extract();
+            }
+            $key = strtolower($tr->select('td[2]/span')->extract());
+            if($key != 'gold' && $key != 'energy'){
+                $key = 'cc';
+            }
+            $result['treasury'][$key] = $amount;
+        }        
         
         /* BONUSES */
         $result['bonuses'] = array_fill_keys(array('food', 'frm', 'weapons', 'wrm'), 0);
