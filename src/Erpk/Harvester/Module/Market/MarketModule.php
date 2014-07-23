@@ -20,12 +20,14 @@ class MarketModule extends Module
         switch($code) {
             case 'food':
             case 'weapons':
+            case 'house':
                 if ($quality < 1 || $quality > 7) {
-                    throw new InvalidArgumentException('Quality for food and weapons should be between 1 and 7.');
+                    throw new InvalidArgumentException('Quality for food, weapons and houses should be between 1 and 7.');
                 }
                 break;
             case 'wrm':
             case 'frm':
+            case 'hrm':
                 if ($quality != 1) {
                     throw new InvalidArgumentException('Quality for raw material must be 1.');
                 }
