@@ -76,21 +76,35 @@ class CountryModule extends Module
         if ($resources->hasResults()) {
             foreach ($resources as $tr) {
                 $resource = $tr->select('td[1]/span')->extract();
-                $r = $tr->select('td[2]/a');
-                if ($r->hasResults()) {
-                    foreach ($r as $region) {
-                        $regions[$region->extract()] = $resource;
+                $cr = $tr->select('td[2]/a');
+                $ncr = $tr->select('td[3]/a');
+                if ($cr->hasResults()) {
+                    foreach ($cr as $region) {
+                        $cregions[$region->extract()] = $resource;
+                    }
+                }
+                if ($ncr->hasResults()) {
+                    foreach ($ncr as $region) {
+                        $ncregions[$region->extract()] = $resource;
                     }
                 }
             }
         }
         
-        $u = array_count_values($regions);
+        $u = array_count_values($cregions);
+        $nc = array_count_values($ncregions);
         foreach ($u as $k => $raw) {
             if ($raw>=1) {
                 $u[$k] = 1;
             } else {
                 $u[$k] = 0;
+            }
+        }
+        foreach ($nc as $k => $raw) {
+            if ($raw>=1) {
+                if($u[$k]==0){
+                    $u[$k] = 0.5;
+                }
             }
         }
         
@@ -109,7 +123,7 @@ class CountryModule extends Module
         }        
         
         /* BONUSES */
-        $result['bonuses'] = array_fill_keys(array('food', 'frm', 'weapons', 'wrm'), 0);
+        $result['bonuses'] = array_fill_keys(array('food', 'frm', 'weapons', 'wrm', 'house', 'hrm'), 0);
         foreach (array('Grain', 'Fish', 'Cattle', 'Deer', 'Fruits') as $raw) {
             if (!isset($u[$raw])) {
                 $u[$raw] = 0;
@@ -127,6 +141,15 @@ class CountryModule extends Module
             }
             $result['bonuses']['wrm']+=$u[$raw];
             $result['bonuses']['weapons']+=$u[$raw];
+        }
+        foreach (array('Sand', 'Clay', 'Wood', 'Limestone', 'Granite') as $raw) {
+            if (!isset($u[$raw])) {
+                $u[$raw] = 0;
+            } else {
+                $u[$raw] = $u[$raw]*0.2;
+            }
+            $result['bonuses']['hrm']+=$u[$raw];
+            $result['bonuses']['house']+=$u[$raw];
         }
         
         /* TAXES */
