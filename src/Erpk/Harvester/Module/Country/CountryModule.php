@@ -102,9 +102,9 @@ class CountryModule extends Module
         }
         foreach ($nc as $k => $raw) {
             if ($raw>=1) {
-                $u[$k] = 0.5;
-            } else {
-                $u[$k] = 0;
+                if($u[$k]==0){
+                    $u[$k] = 0.5;
+                }
             }
         }
         
