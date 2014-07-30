@@ -10,9 +10,9 @@
         "erpk/common": "0.3.*"
     },
     "autoload": {
-        "psr-0": {
-            "Erpk\\Harvester": "src/",
-            "Erpk\\Harvester\\Tests": "tests/"
+        "psr-4": {
+            "Erpk\\Harvester\\": "src/",
+            "Erpk\\Harvester\\Tests\\": "tests/"
         }
     }
 }
