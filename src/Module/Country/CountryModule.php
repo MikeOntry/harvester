@@ -72,7 +72,7 @@ class CountryModule extends Module
         
         /* RESOURCES */
         $resources = $economy->select('//table[@class="resource_list"]/tr');
-        $regions = array();
+        $regions = [];
         if ($resources->hasResults()) {
             foreach ($resources as $tr) {
                 $resource = $tr->select('td[1]/span')->extract();
@@ -94,15 +94,15 @@ class CountryModule extends Module
         $u = array_count_values($cregions);
         $nc = array_count_values($ncregions);
         foreach ($u as $k => $raw) {
-            if ($raw>=1) {
+            if ($raw >= 1) {
                 $u[$k] = 1;
             } else {
                 $u[$k] = 0;
             }
         }
         foreach ($nc as $k => $raw) {
-            if ($raw>=1) {
-                if($u[$k]==0){
+            if ($raw >= 1) {
+                if($u[$k] == 0){
                     $u[$k] = 0.5;
                 }
             }
@@ -110,30 +110,30 @@ class CountryModule extends Module
         
         /* TREASURY */
         $treasury = $economy->select('//table[@class="donation_status_table"]/tr');
-        foreach($treasury as $tr){
+        foreach ($treasury as $tr) {
             $amount = Filter::parseInt($tr->select('td[1]/span')->extract());
-            if($tr->select('td[1]/sup')->hasResults()) {
+            if ($tr->select('td[1]/sup')->hasResults()) {
                 $amount += $tr->select('td[1]/sup')->extract();
             }
             $key = strtolower($tr->select('td[2]/span')->extract());
-            if($key != 'gold' && $key != 'energy'){
+            if ($key != 'gold' && $key != 'energy') {
                 $key = 'cc';
             }
             $result['treasury'][$key] = $amount;
-        }        
+        }
         
         /* BONUSES */
-        $result['bonuses'] = array_fill_keys(array('food', 'frm', 'weapons', 'wrm', 'house', 'hrm'), 0);
-        foreach (array('Grain', 'Fish', 'Cattle', 'Deer', 'Fruits') as $raw) {
+        $result['bonuses'] = array_fill_keys(['food', 'frm', 'weapons', 'wrm', 'house', 'hrm'], 0);
+        foreach (['Grain', 'Fish', 'Cattle', 'Deer', 'Fruits'] as $raw) {
             if (!isset($u[$raw])) {
                 $u[$raw] = 0;
             } else {
                 $u[$raw] = $u[$raw]*0.2;
             }
-            $result['bonuses']['frm']+=$u[$raw];
-            $result['bonuses']['food']+=$u[$raw];
+            $result['bonuses']['frm'] += $u[$raw];
+            $result['bonuses']['food'] += $u[$raw];
         }
-        foreach (array('Iron', 'Saltpeter', 'Rubber', 'Aluminum', 'Oil') as $raw) {
+        foreach (['Iron', 'Saltpeter', 'Rubber', 'Aluminum', 'Oil'] as $raw) {
             if (!isset($u[$raw])) {
                 $u[$raw] = 0;
             } else {
@@ -142,14 +142,14 @@ class CountryModule extends Module
             $result['bonuses']['wrm']+=$u[$raw];
             $result['bonuses']['weapons']+=$u[$raw];
         }
-        foreach (array('Sand', 'Clay', 'Wood', 'Limestone', 'Granite') as $raw) {
+        foreach (['Sand', 'Clay', 'Wood', 'Limestone', 'Granite'] as $raw) {
             if (!isset($u[$raw])) {
                 $u[$raw] = 0;
             } else {
                 $u[$raw] = $u[$raw]*0.2;
             }
-            $result['bonuses']['hrm']+=$u[$raw];
-            $result['bonuses']['house']+=$u[$raw];
+            $result['bonuses']['hrm'] += $u[$raw];
+            $result['bonuses']['house'] += $u[$raw];
         }
         
         /* TAXES */
@@ -159,12 +159,16 @@ class CountryModule extends Module
             if ($tr->select('th')->hasResults()) {
                 continue;
             }
-            $i = $tr->select('td[position()>=2 and position()<=5]/span');
-            if (count($i)!=4) {
-                throw new ScrapeException;
+            $i = $tr->select('td/span');
+            if (count($i) != 4) {
+                throw new ScrapeException();
             }
             $vat = (float)rtrim($i->item(3)->extract(), '%')/100;
-            $industry = $industries->findOneByName($i->item(0)->extract())->getCode();
+            if (!preg_match('@industry/(\d+)/@', $tr->select('td[1]/img[1]/@src')->extract(), $industryId)) {
+                throw new ScrapeException();
+            }
+
+            $industry = $industries->find((int)$industryId[1])->getCode();
             $result['taxes'][$industry] = array(
                 'income' => (float)rtrim($i->item(1)->extract(), '%')/100,
                 'import' => (float)rtrim($i->item(2)->extract(), '%')/100,
@@ -183,7 +187,7 @@ class CountryModule extends Module
                 throw new ScrapeException;
             }
             $type = $i->item(0)->extract();
-            $result['salary'][$type] = (float)$i->item(1)->extract();
+            $result['salary'][strtolower($type)] = (float)$i->item(1)->extract();
         }
         
         /* EMBARGOES */
