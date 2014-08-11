@@ -73,9 +73,14 @@ if ($client->hasProxy()) {
 }
 ```
 
-Modules
+3rd party modules
+----------------
+* [scyzoryck/reaper](https://github.com/scyzoryck/reaper)
+
+Original modules
 -------
 Following examples assume you have already set up your Client and included autoloader.
+
 ###Citizen
 ```php
 use Erpk\Harvester\Module\Citizen\CitizenModule;
