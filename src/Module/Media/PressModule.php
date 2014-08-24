@@ -3,6 +3,8 @@ namespace Erpk\Harvester\Module\Media;
 
 use Erpk\Harvester\Exception\ScrapeException;
 use Erpk\Harvester\Module\Module;
+use Erpk\Harvester\Client\Selector;
+use Erpk\Harvester\Filter;
 
 class PressModule extends Module
 {
@@ -66,9 +68,8 @@ class PressModule extends Module
         $request = $this->getClient()->get('delete-article/'.$article->getId().'/1');
         $request->send();
     }
-}
 
-    public function getNewspaper($id)
+    public function getNewspaper($id, $pageLimit=null)
     {
         $id = Filter::id($id);
         $this->getClient()->checkLogin();
@@ -91,10 +92,19 @@ class PressModule extends Module
 
         $info      = $xs->select('//div[@class="newspaper_head"]');
         $avatar    = $info->select('//img[@class="avatar"]/@src')->extract();
-        $url       = $info->select('div[@class="info"]/ul[1]/li[1]/a[1]/@href')->extract();
+        $url       = explode("/",$info->select('div[@class="info"]/h1/a[1]/@href')->extract());
+        $url       = $url[3];
         $meta      = $xs->select('/*/head/meta[@name="description"]/@content')->extract();
         $meta1     = strpos($meta,'has ');
         $meta2     = strpos($meta,' articles');
+        $pages     = explode("_", $xs->select('//ul[@class="pager"]/li[7]/a/@rel')->extract());
+        $pages     = $pages[1];
+        $page      = 1;
+        if ($pageLimit !== null) {
+            if ($pages > $pageLimit) {
+                $pages = $pageLimit;
+            }
+        }
         /**
          * BASIC DATA
          */
@@ -104,10 +114,36 @@ class PressModule extends Module
         $result['avatar']           = str_replace('55x55','100x100',$avatar);
         $result['country']          = $info->select('div[1]/a[1]/img[2]/@title')->extract();
         $result['subscribers']      = (int)$info->select('div[@class="actions"]')->extract();
-        $result['articles']         = (int)substr($meta,($meta1+3),($meta2 - $meta1 -3));
+        $result['article_count']         = (int)substr($meta,($meta1+3),($meta2 - $meta1 -3));
         if($result['avatar'] == '/images/default_avatars/Newspapers/default_100x100.gif'){
             $result['avatar'] = NULL;
         }
+
+        while ($page <= $pages) {            
+            $response = $this->getClient()->get('newspaper/'.$url.'/'.$page)->send();
+            $xs = Selector\XPath::loadHTML($response->getBody(true));
+            $articles  = $xs->select('//div[@class="post"]');
+            if ($articles->hasResults()) {
+                foreach ($articles as $art) {
+                    $title = $art->select('div[2]/h2/a')->extract();
+                    $artUrl = 'http://www.erepublik.com'.$art->select('div[2]/h2/a/@href')->extract();
+                    $votes = $art->select('div[1]/div[1]/strong')->extract();
+                    $comments = $art->select('div[2]/div[1]/a[1]')->extract();
+                    $date = $art->select('div[2]/div[1]/em')->extract();
+                    $category = $art->select('div[2]/div[1]/a[3]')->extract();
+                    $result['articles'][] = array(
+                        'title' => $title,
+                        'url' => $artUrl,
+                        'votes' => $votes,
+                        'comments' => $comments,
+                        'date' => $date,
+                        'category' => $category
+                    );
+                }
+            }
+            $page++;
+        }
+        
         return $result;
     }
 }
