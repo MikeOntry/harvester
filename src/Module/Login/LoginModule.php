@@ -1,9 +1,9 @@
 <?php
 namespace Erpk\Harvester\Module\Login;
 
-use Erpk\Harvester\Client\Selector;
 use Erpk\Harvester\Module\Module;
 use Erpk\Harvester\Exception\ScrapeException;
+use XPathSelector\Exception\NotFoundException;
 
 class LoginModule extends Module
 {
@@ -20,27 +20,16 @@ class LoginModule extends Module
         
         $login->setHeader('Referer', $client->getBaseUrl());
         $login = $login->send();
-        if ($login->isRedirect()) {
-            $homepage = $client->get()->send();
-            $this->parseSessionData($homepage->getBody(true));
-        } else {
+        if (!$login->isRedirect()) {
             throw new ScrapeException('Login failed.');
         }
-    }
 
-    public function logout()
-    {
-        $this->getClient()->post('logout')->send();
-    }
-
-    protected function parseSessionData($html)
-    {
-        $hxs = Selector\XPath::loadHTML($html);
-        
+        $hxs = $client->get()->send()->xpath();
         $token = null;
-        $tokenInput = $hxs->select('//*[@id="_token"][1]/@value');
-        if (!$tokenInput->hasResults()) {
-            $scripts = $hxs->select('//script[@type="text/javascript"]');
+        try {
+            $token = $hxs->find('//*[@id="_token"][1]/@value')->extract();
+        } catch (NotFoundException $e) {
+            $scripts = $hxs->findAll('//script[@type="text/javascript"]');
             $tokenPattern = '@csrfToken\s*:\s*\'([a-z0-9]+)\'@';
             foreach ($scripts as $script) {
                 if (preg_match($tokenPattern, $script->extract(), $matches)) {
@@ -48,24 +37,22 @@ class LoginModule extends Module
                     break;
                 }
             }
-        } else {
-            $token = $tokenInput->extract();
         }
 
         if ($token === null) {
-            throw new Exception\ScrapeException('CSRF token not found');
+            throw new ScrapeException('CSRF token not found');
         }
 
-        $userAvatar = $hxs->select('//a[@class="user_avatar"][1]');
-        $id   = (int)strtr($userAvatar->select('@href')->extract(), array('/en/citizen/profile/' => ''));
-        $name = $userAvatar->select('@title')->extract();
-        
-        $this
-            ->getClient()
-            ->getSession()
+        $link = $hxs->find('//a[@class="user_avatar"][1]');
+        $this->getClient()->getSession()
             ->setToken($token)
-            ->setCitizenId($id)
-            ->setCitizenName($name)
+            ->setCitizenId((int)explode('/', $link->find('@href')->extract())[4])
+            ->setCitizenName($link->find('@title')->extract())
             ->save();
+    }
+
+    public function logout()
+    {
+        $this->getClient()->post('logout')->send();
     }
 }
