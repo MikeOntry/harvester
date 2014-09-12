@@ -16,6 +16,7 @@ Create `composer.json` file in your application directory:
 ```json
 {
     "minimum-stability": "dev",
+    "prefer-stable": true,
     "require": {
       "erpk/harvester": "dev-master"
     }
