@@ -208,7 +208,7 @@ class PressModule extends Module
             'date' => self::parseDate($date->extract()),
             'title' => $xs->find('//div[@class="post_content"][1]/h2[1]/a[1]')->extract(),
             'votes' => (int)trim($xs->find('//strong[@class="numberOfVotes_'.$id.'"][1]')->extract()),
-            'category' => $xs->find('//a[@class="category_name"][1]/@title')->extract(),
+            'category' => null,
             'newspaper' => [
                 'id' => (int)$xs->find('//input[@id="newspaper_id"]/@value')->extract(),
                 'owner' => [
@@ -223,6 +223,11 @@ class PressModule extends Module
             'content_html' => trim($xs->find('//div[@class="full_content"]')->innerHTML()),
             'comments' => self::parseArticleComments($xs->find('//div[@id="loadMoreComments"]'))
         ];
+
+        try {
+            $article['category'] = $xs->find('//a[@class="category_name"][1]/@title')->extract();
+        } catch (\Exception $e) {
+        }
 
         $pagesTotal = 1;
         try {
