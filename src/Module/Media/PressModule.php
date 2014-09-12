@@ -221,8 +221,13 @@ class PressModule extends Module
                 'subscribers' => (int)$xs->find('//em[@class="subscribers"]')->extract()
             ],
             'content_html' => trim($xs->find('//div[@class="full_content"]')->innerHTML()),
-            'comments' => self::parseArticleComments($xs->find('//div[@id="loadMoreComments"]'))
+            'comments' => []
         ];
+
+        try {
+            $article['comments'] = self::parseArticleComments($xs->find('//div[@id="loadMoreComments"]'));
+        } catch (\Exception $e) {
+        }
 
         try {
             $article['category'] = $xs->find('//a[@class="category_name"][1]/@title')->extract();
