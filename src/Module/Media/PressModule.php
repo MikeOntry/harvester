@@ -83,9 +83,9 @@ class PressModule extends Module
         $date->setTime((int)$time[0], (int)$time[1], 0);
         return $date;
     }
+
     public static function parseArticleComments($xs)
     {
-        
         $comments = $xs->findAll('div[contains(concat(" ", normalize-space(@class), " "), " comment-holder ")]');
         $list = $comments->map(function ($node) use ($xs) {
             $class = $node->find('@class')->extract();
@@ -193,6 +193,9 @@ class PressModule extends Module
     {
         $this->getClient()->checkLogin();
         $location = $this->getClient()->get('article/'.$id.'/1/20')->send()->getLocation();
+        if ($location === '/en') {
+            throw new Exception\ArticleNotFoundException('Article with ID '.$id.' has not been found.');
+        }
         $response = $this->getClient()->get($location)->send();
         $xs = $response->xpath();
 
