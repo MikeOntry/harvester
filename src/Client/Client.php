@@ -1,49 +1,48 @@
 <?php
 namespace Erpk\Harvester\Client;
 
+use Erpk\Harvester\Module\Login\LoginModule;
 use Erpk\Harvester\Exception;
-use Erpk\Harvester\Filter;
-use Erpk\Harvester\Client\Plugin\Maintenance\MaintenancePlugin;
 use Erpk\Harvester\Client\Proxy\ProxyInterface;
 use Guzzle\Plugin\Cookie\CookiePlugin;
 use Guzzle\Http\Client as GuzzleClient;
 
-class Client extends GuzzleClient
+class Client extends GuzzleClient implements ClientInterface
 {
-    protected $email;
-    protected $password;
-    protected $session;
-    protected $proxy = null;
+    private $session;
+    private $sessionStorage;
+    private $email;
+    private $password;
+    private $proxy;
     
-    public function __construct($locale = 'en')
+    public function __construct()
     {
         parent::__construct(
-            'http://www.erepublik.com/'.$locale,
-            array('redirect.disable' => true)
+            'http://www.erepublik.com/en',
+            ['redirect.disable' => true]
         );
         
-        $this->getConfig()->set(
-            'curl.options',
-            array(
-                CURLOPT_ENCODING          => '',
-                CURLOPT_FOLLOWLOCATION    => false,
-                CURLOPT_CONNECTTIMEOUT_MS => 3000,
-                CURLOPT_TIMEOUT_MS        => 5000
-            )
-        );
+        $this->getConfig()->set('curl.options', [
+            CURLOPT_ENCODING          => '',
+            CURLOPT_FOLLOWLOCATION    => false,
+            CURLOPT_CONNECTTIMEOUT_MS => 3000,
+            CURLOPT_TIMEOUT_MS        => 5000
+        ]);
         
         $this->getDefaultHeaders()
             ->set('Expect', '')
             ->set('Accept', 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8')
             ->set('Accept-Language', 'en-US,en;q=0.8');
-        $this->getEventDispatcher()->addSubscriber(new MaintenancePlugin);
 
-        $this->setUserAgent('Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/29.0.1547.66 Safari/537.36');
+        $this->setUserAgent('Mozilla/5.0 (Windows NT 6.3; WOW64; rv:31.0) Gecko/20100101 Firefox/31.0');
+
+        $this->loginModule = new LoginModule($this);
     }
-    
+
     public function setEmail($email)
     {
-        $this->email = Filter::email($email);
+        $this->email = $email;
+        $this->initSession();
         return $this;
     }
     
@@ -52,7 +51,7 @@ class Client extends GuzzleClient
         if (isset($this->email)) {
             return $this->email;
         } else {
-            throw new Exception\ConfigurationException('Account e-mail address not specified.');
+            throw new Exception\ConfigurationException('Account e-mail address not specified');
         }
     }
     
@@ -67,18 +66,48 @@ class Client extends GuzzleClient
         if (isset($this->password)) {
             return $this->password;
         } else {
-            throw new Exception\ConfigurationException('Account password not specified.');
+            throw new Exception\ConfigurationException('Account password not specified');
+        }
+    }
+
+    public function setSessionStorage($path)
+    {
+        if (!is_dir($path)) {
+            throw new Exception\ConfigurationException('Session storage path is not a directory');
+        } else if (!is_writable($path)) {
+            throw new Exception\ConfigurationException('Session storage path is not writable');
+        }
+        $this->sessionStorage = $path;
+    }
+
+    public function getSessionStorage()
+    {
+        if ($this->sessionStorage) {
+            return $this->sessionStorage;
+        } else {
+            return sys_get_temp_dir();
+        }
+    }
+
+    protected function initSession()
+    {
+        if (!isset($this->session)) {
+            $sessionId = substr(sha1($this->getEmail()), 0, 7);
+            $this->session = new Session(
+                $this->getSessionStorage().'/'.'erpk.'.$sessionId.'.sess'
+            );
+            $cookiePlugin = new CookiePlugin($this->session->getCookieJar());
+            $this->getEventDispatcher()->addSubscriber($cookiePlugin);
         }
     }
     
     public function getSession()
     {
-        if (!isset($this->session)) {
-            $this->session = new Session(sys_get_temp_dir().'/'.'erpk['.$this->getEmail().'].session');
-            $cookiePlugin = new CookiePlugin($this->session->getCookieJar());
-            $this->getEventDispatcher()->addSubscriber($cookiePlugin);
+        if (isset($this->session)) {
+            return $this->session;
+        } else {
+            throw new Exception\ConfigurationException('Session has not been initialized');
         }
-        return $this->session;
     }
     
     public function hasProxy()
@@ -110,71 +139,30 @@ class Client extends GuzzleClient
     
     public function login()
     {
-        $login = $this->post('login');
-        $login->addPostFields(
-            array(
-                '_token'            =>  md5(time()),
-                'citizen_email'     =>  $this->getEmail(),
-                'citizen_password'  =>  $this->getPassword(),
-                'remember'          =>  1
-            )
-        );
-        
-        $login->setHeader('Referer', $this->getBaseUrl());
-        $login = $login->send();
-        
-        if ($login->isRedirect()) {
-            $homepage = $this->get()->send();
-            $hxs = Selector\XPath::loadHTML($homepage->getBody(true));
-            $this->parseSessionData($hxs);
-        } else {
-            throw new Exception\ScrapeException('Login failed.');
-        }
+        return $this->loginModule->login();
     }
-    
+
     public function logout()
     {
-        $this->post('logout')->send();
+        return $this->loginModule->logout();
     }
-    
+
     public function checkLogin()
     {
         if (!$this->getSession()->isValid()) {
             $this->login();
         }
     }
-    
-    protected function parseSessionData($hxs)
-    {
-        $token = null;
 
-        $tokenInput = $hxs->select('//*[@id="_token"][1]/@value');
-        if (!$tokenInput->hasResults()) {
-            $scripts = $hxs->select('//script[@type="text/javascript"]');
-            $tokenPattern = '@csrfToken\s*:\s*\'([a-z0-9]+)\'@';
-            foreach ($scripts as $script) {
-                if (preg_match($tokenPattern, $script->extract(), $matches)) {
-                    $token = $matches[1];
-                    break;
-                }
+    public function send($requests)
+    {
+        $responses = parent::send($requests);
+        if (is_array($responses)) {
+            foreach ($responses as &$response) {
+                $response = new ResponseWrapper($response);
             }
         } else {
-            $token = $tokenInput->extract();
+            return new ResponseWrapper($responses);
         }
-
-        if ($token === null) {
-            throw new Exception\ScrapeException('CSRF token not found');
-        }
-
-        $userAvatar = $hxs->select('//a[@class="user_avatar"][1]');
-        $id   = (int)strtr($userAvatar->select('@href')->extract(), array('/en/citizen/profile/' => ''));
-        $name = $userAvatar->select('@title')->extract();
-        
-        $this
-            ->getSession()
-            ->setToken($token)
-            ->setCitizenId($id)
-            ->setCitizenName($name)
-            ->save();
     }
 }

@@ -8,17 +8,17 @@ class Session
 {
     protected $savePath;
     protected $authTimeout = 480;
-    protected $data = array(
-        'touch'         =>  null,
-        'token'         =>  null,
-        'cookieJar'     =>  null,
-        'citizen.id'    =>  null,
-        'citizen.name'  =>  null
-    );
+    protected $data = [
+        'touch'        =>  null,
+        'token'        =>  null,
+        'cookieJar'    =>  null,
+        'citizen.id'   =>  null,
+        'citizen.name' =>  null
+    ];
     
     public function __construct($savePath)
     {
-        $this->savePath=$savePath;
+        $this->savePath = $savePath;
         $cookieJar = new ArrayCookieJar();
         
         if (file_exists($savePath)) {
@@ -45,11 +45,7 @@ class Session
     {
         $copy = $this->data;
         $copy['cookieJar'] = $this->serializeCookieJar();
-        
-        file_put_contents(
-            $this->savePath,
-            serialize($copy)
-        );
+        file_put_contents($this->savePath, serialize($copy));
     }
     
     public function __destruct()
@@ -59,7 +55,7 @@ class Session
     
     public function isValid()
     {
-        return (time()-$this->data['touch'])<$this->authTimeout;
+        return (time()-$this->data['touch']) < $this->authTimeout;
     }
     
     public function getCookieJar()
