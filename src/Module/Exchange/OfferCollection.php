@@ -1,9 +1,7 @@
 <?php
 namespace Erpk\Harvester\Module\Exchange;
 
-use ArrayObject;
-
-class OfferCollection extends ArrayObject
+class OfferCollection extends \ArrayObject
 {
     protected $paginator;
     protected $goldAmount;
