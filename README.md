@@ -259,6 +259,7 @@ $module->sendMessage(
 ```php
 use Erpk\Harvester\Module\Media\PressModule;
 use Erpk\Harvester\Module\Media\Article;
+use Erpk\Harvester\Module\Media\Category;
 
 $press = new PressModule($client);
 
@@ -266,7 +267,7 @@ $press = new PressModule($client);
 $article = $press->publishArticle(
     'Test article',
     'Article body',
-    PressModule::CATEGORY_FIRST_STEPS
+    Category::FIRST_STEPS
 );
 
 // Edit existing article
@@ -274,7 +275,7 @@ $press->editArticle(
     $article,
     'Test article 2',
     'Another body',
-    PressModule::CATEGORY_BATTLE_ORDERS
+    Category::BATTLE_ORDERS
 );
 
 // Remove article
