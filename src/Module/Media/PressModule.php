@@ -96,19 +96,18 @@ class PressModule extends Module
 
             $id = (int)str_replace('comment', '', $node->find('@id')->extract());
             try {
-                $right->find('i[@class="cmnt-deleted"][1]');
-                $deleted = true;
-                $votes   = null;
-                $date    = null;
-            } catch (\Exception $e) {
-                $deleted = false;
                 $votes   = (int)trim($right->find('ul[1]/li/a[@id="nr_vote_'.$id.'"]')->extract());
+                $deleted = false;
                 if ($level > 0) {
                     $date = $right->find('ul[1]/li/span[@class="article_comment_posted_at"]');
                 } else {
                     $date = $left->find('span[1]');
                 }
                 $date = self::parseDate($date->extract());
+            } catch (\Exception $e) {
+                $deleted = true;
+                $votes   = null;
+                $date    = null;
             }
 
             switch ($level) {
@@ -192,6 +191,12 @@ class PressModule extends Module
         $em = EntityManager::getInstance();
         $countries = $em->getRepository('Erpk\Common\Entity\Country');
 
+        try {
+            $subscribers = (int)$xs->find('//em[@class="subscribers"]')->extract();
+        } catch (NotFoundException $e) {
+            $subscribers = (int)trim($head->find('div[@class="actions"][1]/p[1]/em[1]')->extract());
+        }
+
         $article = [
             'id'  => $id,
             'url' => 'http://www.erepublik.com'.$location,
@@ -208,7 +213,7 @@ class PressModule extends Module
                 'name' => $head->find('div[1]/a[1]/@title')->extract(),
                 'country' => $countries->findOneByName($xs->find('//a[@class="newspaper_country"][1]/img/@title')->extract()),
                 'avatar' => $head->find('div[1]/a[1]/img[@class="avatar"]/@src')->extract(),
-                'subscribers' => (int)$xs->find('//em[@class="subscribers"]')->extract()
+                'subscribers' => $subscribers
             ],
             'content_html' => trim($xs->find('//div[@class="full_content"]')->innerHTML()),
             'comments' => []
@@ -235,6 +240,7 @@ class PressModule extends Module
 
         unset($xs);
 
+        $requests = [];
         for ($p = 2; $p <= $pagesTotal; $p++) {
             $request = $this->getClient()->post('main/article-comment/loadMoreComments/');
             $request->addPostFields([
@@ -242,8 +248,14 @@ class PressModule extends Module
                 'page'      => $p,
                 '_token'    => $this->getSession()->getToken()
             ]);
-            $xs = $request->send()->xpath();
-            foreach (self::parseArticleComments($xs->find('//body')) as $comment) {
+            $requests[] = $request;
+        }
+
+        $responses = $this->getClient()->send($requests);
+
+        foreach ($responses as $response) {
+            $xs = $response->xpath();
+            foreach (self::parseArticleComments($xs->find('//body[1]')) as $comment) {
                 $article['comments'][] = $comment;
             }
         }
