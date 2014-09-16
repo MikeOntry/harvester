@@ -158,9 +158,9 @@ class Client extends GuzzleClient implements ClientInterface
     {
         $responses = parent::send($requests);
         if (is_array($responses)) {
-            foreach ($responses as &$response) {
-                $response = new ResponseWrapper($response);
-            }
+            return array_map(function ($request) {
+                return new ResponseWrapper($request->getResponse());
+            }, $requests);
         } else {
             return new ResponseWrapper($responses);
         }
