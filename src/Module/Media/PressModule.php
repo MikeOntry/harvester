@@ -255,8 +255,12 @@ class PressModule extends Module
 
         foreach ($responses as $response) {
             $xs = $response->xpath();
-            foreach (self::parseArticleComments($xs->find('//body[1]')) as $comment) {
-                $article['comments'][] = $comment;
+            try {
+                foreach (self::parseArticleComments($xs->find('//body[1]')) as $comment) {
+                    $article['comments'][] = $comment;
+                }
+            } catch (NotFoundException $e) {
+                // no comments were found on this page
             }
         }
         
