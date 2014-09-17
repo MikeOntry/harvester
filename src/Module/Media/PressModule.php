@@ -251,16 +251,18 @@ class PressModule extends Module
             $requests[] = $request;
         }
 
-        $responses = $this->getClient()->send($requests);
-
-        foreach ($responses as $response) {
-            $xs = $response->xpath();
-            try {
-                foreach (self::parseArticleComments($xs->find('//body[1]')) as $comment) {
-                    $article['comments'][] = $comment;
+        $chunks = array_chunk($requests, 4);
+        foreach ($chunks as $chunk) {
+            $responses = $this->getClient()->send($chunk);
+            foreach ($responses as $response) {
+                $xs = $response->xpath();
+                try {
+                    foreach (self::parseArticleComments($xs->find('//body[1]')) as $comment) {
+                        $article['comments'][] = $comment;
+                    }
+                } catch (NotFoundException $e) {
+                    // no comments were found on this page
                 }
-            } catch (NotFoundException $e) {
-                // no comments were found on this page
             }
         }
         
